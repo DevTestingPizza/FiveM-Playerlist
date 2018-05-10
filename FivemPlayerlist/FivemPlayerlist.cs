@@ -15,6 +15,18 @@ namespace FivemPlayerlist
         private bool ScaleSetup = false;
         private int currentPage = 0;
         Scaleform scale;
+        private int maxPages = (int)Math.Ceiling((double)new PlayerList().Count() / 16.0);
+        public struct PlayerRowConfig
+        {
+            public string crewName;
+            public int jobPoints;
+            public bool showJobPointsIcon;
+        }
+        private Dictionary<int, PlayerRowConfig> playerConfigs = new Dictionary<int, PlayerRowConfig>();
+
+        /// <summary>
+        /// Constructor
+        /// </summary>
         public FivemPlayerlist()
         {
             TriggerServerEvent("fs:getMaxPlayers");
@@ -22,10 +34,35 @@ namespace FivemPlayerlist
             Tick += DisplayController;
             Tick += BackupTimer;
             EventHandlers.Add("fs:setMaxPlayers", new Action<int>(SetMaxPlayers));
+            EventHandlers.Add("fs:setPlayerConfig", new Action<int, string, int, bool>(SetPlayerConfig));
         }
-        private int maxPages = (int)Math.Ceiling((double)new PlayerList().Count() / 16.0);
 
 
+        /// <summary>
+        /// Set the config for the specified player.
+        /// </summary>
+        /// <param name="playerServerId"></param>
+        /// <param name="crewname"></param>
+        /// <param name="jobpoints"></param>
+        /// <param name="showJPicon"></param>
+        private async void SetPlayerConfig(int playerServerId, string crewname, int jobpoints, bool showJPicon)
+        {
+            var cfg = new PlayerRowConfig()
+            {
+                crewName = crewname ?? "",
+                jobPoints = jobpoints,
+                showJobPointsIcon = showJPicon
+            };
+            playerConfigs[playerServerId] = cfg;
+            if (currentPage > -1)
+                await LoadScale();
+        }
+
+
+        /// <summary>
+        /// Used to close the page if the regular timer fails to close it for some odd reason.
+        /// </summary>
+        /// <returns></returns>
         private async Task BackupTimer()
         {
             var timer = GetGameTimer();
@@ -40,11 +77,18 @@ namespace FivemPlayerlist
             }
         }
 
+        /// <summary>
+        /// Updates the max pages to disaplay based on the player count.
+        /// </summary>
         private void UpdateMaxPages()
         {
             maxPages = (int)Math.Ceiling((double)new PlayerList().Count() / 16.0);
         }
 
+        /// <summary>
+        /// Manages the display and page setup of the playerlist.
+        /// </summary>
+        /// <returns></returns>
         private async Task DisplayController()
         {
             if (Game.IsControlJustPressed(0, Control.MultiplayerInfo))
@@ -89,14 +133,21 @@ namespace FivemPlayerlist
                     }
                 }
             }
-
         }
 
+        /// <summary>
+        /// Updates the max players (triggered from server event)
+        /// </summary>
+        /// <param name="count"></param>
         private void SetMaxPlayers(int count)
         {
             maxClients = count;
         }
 
+        /// <summary>
+        /// Shows the scoreboard.
+        /// </summary>
+        /// <returns></returns>
         private async Task ShowScoreboard()
         {
             if (maxClients != -1)
@@ -128,6 +179,10 @@ namespace FivemPlayerlist
             }
         }
 
+        /// <summary>
+        /// Loads the scaleform.
+        /// </summary>
+        /// <returns></returns>
         private async Task LoadScale()
         {
             if (scale != null)
@@ -152,6 +207,9 @@ namespace FivemPlayerlist
             scale.CallFunction("DISPLAY_VIEW");
         }
 
+        /// <summary>
+        /// Struct used for the player info row options.
+        /// </summary>
         struct PlayerRow
         {
             public int serverId;
@@ -190,6 +248,11 @@ namespace FivemPlayerlist
             public char friendType;
         }
 
+        /// <summary>
+        /// Returns the ped headshot string used for the image of the ped for each row.
+        /// </summary>
+        /// <param name="ped"></param>
+        /// <returns></returns>
         private async Task<string> GetHeadshotImage(int ped)
         {
             var headshotHandle = RegisterPedheadshot(ped);
@@ -200,6 +263,10 @@ namespace FivemPlayerlist
             return GetPedheadshotTxdString(headshotHandle) ?? "";
         }
 
+        /// <summary>
+        /// Updates the scaleform settings.
+        /// </summary>
+        /// <returns></returns>
         private async Task UpdateScale()
         {
             List<PlayerRow> rows = new List<PlayerRow>();
@@ -214,25 +281,46 @@ namespace FivemPlayerlist
             {
                 if (IsRowSupposedToShow(amount))
                 {
-                    PlayerRow row = new PlayerRow()
+                    if (playerConfigs.ContainsKey(p.ServerId))
                     {
-                        color = 111,
-                        crewLabelText = "",
-                        friendType = ' ',
-                        iconOverlayText = "",
-                        jobPointsDisplayType = PlayerRow.DisplayType.NONE,
-                        jobPointsText = "",
-                        name = p.Name.Replace("<", "").Replace(">", "").Replace("^", "").Replace("~", "").Trim(),
-                        rightIcon = (int)PlayerRow.RightIconType.RANK_FREEMODE,
-                        rightText = $"{GetPlayerServerId(p.Handle)}",
-                        serverId = GetPlayerServerId(p.Handle),
-                    };
-                    row.textureString = await GetHeadshotImage(GetPlayerPed(p.Handle));
-                    rows.Add(row);
+                        PlayerRow row = new PlayerRow()
+                        {
+                            color = 111,
+                            crewLabelText = playerConfigs[p.ServerId].crewName,
+                            friendType = ' ',
+                            iconOverlayText = "",
+                            jobPointsDisplayType = playerConfigs[p.ServerId].showJobPointsIcon ? PlayerRow.DisplayType.ICON :
+                                (playerConfigs[p.ServerId].jobPoints >= 0 ? PlayerRow.DisplayType.NUMBER_ONLY : PlayerRow.DisplayType.NONE),
+                            jobPointsText = playerConfigs[p.ServerId].jobPoints >= 0 ? playerConfigs[p.ServerId].jobPoints.ToString() : "",
+                            name = p.Name.Replace("<", "").Replace(">", "").Replace("^", "").Replace("~", "").Trim(),
+                            rightIcon = (int)PlayerRow.RightIconType.RANK_FREEMODE,
+                            rightText = $"{p.ServerId}",
+                            serverId = p.ServerId,
+                        };
+                        row.textureString = await GetHeadshotImage(GetPlayerPed(p.Handle));
+                        rows.Add(row);
+                    }
+                    else
+                    {
+                        PlayerRow row = new PlayerRow()
+                        {
+                            color = 111,
+                            crewLabelText = "",
+                            friendType = ' ',
+                            iconOverlayText = "",
+                            jobPointsDisplayType = PlayerRow.DisplayType.NUMBER_ONLY,
+                            jobPointsText = "",
+                            name = p.Name.Replace("<", "").Replace(">", "").Replace("^", "").Replace("~", "").Trim(),
+                            rightIcon = (int)PlayerRow.RightIconType.RANK_FREEMODE,
+                            rightText = $"{p.ServerId}",
+                            serverId = p.ServerId,
+                        };
+                        row.textureString = await GetHeadshotImage(GetPlayerPed(p.Handle));
+                        rows.Add(row);
+                    }
                 }
                 amount++;
             }
-
             rows.Sort((row1, row2) => row1.serverId.CompareTo(row2.serverId));
             for (var i = 0; i < maxClients * 2; i++)
             {
@@ -255,6 +343,11 @@ namespace FivemPlayerlist
             }
         }
 
+        /// <summary>
+        /// Used to check if the row from the loop is supposed to be displayed based on the current page view.
+        /// </summary>
+        /// <param name="row"></param>
+        /// <returns></returns>
         private bool IsRowSupposedToShow(int row)
         {
             if (currentPage > 0)
