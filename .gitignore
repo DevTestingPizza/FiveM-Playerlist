@@ -256,7 +256,7 @@ paket-files/
 # CodeRush
 .cr/
 
-builds/*
 builds/__resource.lua
 builds/FivemPlayerlist.net.dll
 builds/FivemPlayerlistServer.net.dll
+builds/__resource.lua
