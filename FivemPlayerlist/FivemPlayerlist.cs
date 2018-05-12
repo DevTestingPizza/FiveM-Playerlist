@@ -326,7 +326,14 @@ namespace FivemPlayerlist
                         };
                     }
 
-                    row.textureString = textureCache[p.Handle] ?? "";
+                    if (textureCache.ContainsKey(p.Handle))
+                    {
+                        row.textureString = textureCache[p.Handle];
+                    }
+                    else
+                    {
+                        row.textureString = "";
+                    }
                     
                     rows.Add(row);
                 }
