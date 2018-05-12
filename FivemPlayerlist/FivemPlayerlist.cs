@@ -325,14 +325,14 @@ namespace FivemPlayerlist
                         };
                     }
 
-                    Debug.WriteLine("Checking if {0} is in the Dic. Their SERVER ID {1}.", p.Name, p.ServerId);
+                    //Debug.WriteLine("Checking if {0} is in the Dic. Their SERVER ID {1}.", p.Name, p.ServerId);
                     if (textureCache.ContainsKey(p.ServerId))
                     {
                         row.textureString = textureCache[p.ServerId];
                     }
                     else
                     {
-                        Debug.WriteLine("Not in setting image to blank");
+                        //Debug.WriteLine("Not in setting image to blank");
                         row.textureString = "";
                     }
 
@@ -340,7 +340,6 @@ namespace FivemPlayerlist
                 }
                 amount++;
             }
-            Debug.WriteLine("Sorting rows");
             rows.Sort((row1, row2) => row1.serverId.CompareTo(row2.serverId));
             for (var i = 0; i < maxClients * 2; i++)
             {
@@ -391,15 +390,12 @@ namespace FivemPlayerlist
         /// <returns></returns>
         private async Task UpdateHeadshots()
         {
-            Debug.WriteLine("Updating headshots...");
             PlayerList playersToCheck = new PlayerList();
-            //Debug.WriteLine("Players to check: " + playersToCheck.Count());
 
             foreach (Player p in playersToCheck)
             {
                 string headshot = await GetHeadshotImage(GetPlayerPed(p.Handle));
 
-                Debug.WriteLine("Updating " + p.ServerId + " : " + p.Handle);
                 textureCache[p.ServerId] = headshot;
             }
 
