@@ -307,7 +307,6 @@ namespace FivemPlayerlist
                             rightText = $"{p.ServerId}",
                             serverId = p.ServerId,
                         };
-
                     }
                     else
                     {
@@ -326,19 +325,22 @@ namespace FivemPlayerlist
                         };
                     }
 
-                    if (textureCache.ContainsKey(p.Handle))
+                    Debug.WriteLine("Checking if {0} is in the Dic. Their SERVER ID {1}.", p.Name, p.ServerId);
+                    if (textureCache.ContainsKey(p.ServerId))
                     {
-                        row.textureString = textureCache[p.Handle];
+                        row.textureString = textureCache[p.ServerId];
                     }
                     else
                     {
+                        Debug.WriteLine("Not in setting image to blank");
                         row.textureString = "";
                     }
-                    
+
                     rows.Add(row);
                 }
                 amount++;
             }
+            Debug.WriteLine("Sorting rows");
             rows.Sort((row1, row2) => row1.serverId.CompareTo(row2.serverId));
             for (var i = 0; i < maxClients * 2; i++)
             {
@@ -397,7 +399,8 @@ namespace FivemPlayerlist
             {
                 string headshot = await GetHeadshotImage(GetPlayerPed(p.Handle));
 
-                textureCache[p.Handle] = headshot;
+                Debug.WriteLine("Updating " + p.ServerId + " : " + p.Handle);
+                textureCache[p.ServerId] = headshot;
             }
 
             //Maybe make configurable?
