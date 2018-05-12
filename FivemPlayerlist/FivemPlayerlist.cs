@@ -24,6 +24,8 @@ namespace FivemPlayerlist
         }
         private Dictionary<int, PlayerRowConfig> playerConfigs = new Dictionary<int, PlayerRowConfig>();
 
+        private Dictionary<int, string> textureCache = new Dictionary<int, string>();
+
         /// <summary>
         /// Constructor
         /// </summary>
@@ -33,10 +35,13 @@ namespace FivemPlayerlist
             Tick += ShowScoreboard;
             Tick += DisplayController;
             Tick += BackupTimer;
+
+            // Periodically update the player headshots so, you don't have to wait for them later
+            Tick += UpdateHeadshots;
+
             EventHandlers.Add("fs:setMaxPlayers", new Action<int>(SetMaxPlayers));
             EventHandlers.Add("fs:setPlayerConfig", new Action<int, string, int, bool>(SetPlayerConfig));
         }
-
 
         /// <summary>
         /// Set the config for the specified player.
@@ -93,7 +98,6 @@ namespace FivemPlayerlist
         {
             if (Game.IsControlJustPressed(0, Control.MultiplayerInfo))
             {
-
                 UpdateMaxPages();
                 if (ScaleSetup)
                 {
@@ -256,8 +260,12 @@ namespace FivemPlayerlist
         private async Task<string> GetHeadshotImage(int ped)
         {
             var headshotHandle = RegisterPedheadshot(ped);
-            while (!IsPedheadshotReady(headshotHandle))
+            /*
+             * For some reason, the below loop didn't work originally without the Valid check or the re-registering of the headshot
+             */
+            while (!IsPedheadshotReady(headshotHandle) || !IsPedheadshotValid(headshotHandle))
             {
+                headshotHandle = RegisterPedheadshot(ped);
                 await Delay(0);
             }
             return GetPedheadshotTxdString(headshotHandle) ?? "";
@@ -281,9 +289,11 @@ namespace FivemPlayerlist
             {
                 if (IsRowSupposedToShow(amount))
                 {
+                    PlayerRow row = new PlayerRow(); // Set as a blank PlayerRow obj
+
                     if (playerConfigs.ContainsKey(p.ServerId))
                     {
-                        PlayerRow row = new PlayerRow()
+                        row = new PlayerRow()
                         {
                             color = 111,
                             crewLabelText = playerConfigs[p.ServerId].crewName,
@@ -297,12 +307,11 @@ namespace FivemPlayerlist
                             rightText = $"{p.ServerId}",
                             serverId = p.ServerId,
                         };
-                        row.textureString = await GetHeadshotImage(GetPlayerPed(p.Handle));
-                        rows.Add(row);
+
                     }
                     else
                     {
-                        PlayerRow row = new PlayerRow()
+                        row = new PlayerRow()
                         {
                             color = 111,
                             crewLabelText = "",
@@ -315,9 +324,11 @@ namespace FivemPlayerlist
                             rightText = $"{p.ServerId}",
                             serverId = p.ServerId,
                         };
-                        row.textureString = await GetHeadshotImage(GetPlayerPed(p.Handle));
-                        rows.Add(row);
                     }
+
+                    row.textureString = textureCache[p.Handle] ?? "";
+                    
+                    rows.Add(row);
                 }
                 amount++;
             }
@@ -341,6 +352,8 @@ namespace FivemPlayerlist
                 }
                 index++;
             }
+
+            await Delay(0);
         }
 
         /// <summary>
@@ -362,5 +375,27 @@ namespace FivemPlayerlist
             }
             return false;
         }
+
+        /// <summary>
+        /// Update the "textureCache" Dictionary with headshots of the players online.
+        /// </summary>
+        /// <returns></returns>
+        private async Task UpdateHeadshots()
+        {
+            Debug.WriteLine("Updating headshots...");
+            PlayerList playersToCheck = new PlayerList();
+            //Debug.WriteLine("Players to check: " + playersToCheck.Count());
+
+            foreach (Player p in playersToCheck)
+            {
+                string headshot = await GetHeadshotImage(GetPlayerPed(p.Handle));
+
+                textureCache[p.Handle] = headshot;
+            }
+
+            //Maybe make configurable?
+            await Delay(1000);
+        }
+
     }
 }
